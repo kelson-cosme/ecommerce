@@ -1,11 +1,12 @@
-// src/pages/StorefrontPage.tsx
+// Caminho do arquivo: src/pages/StorefrontPage.tsx
+
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useStore } from '../lib/StoreContext';
 import { supabase } from '../lib/supabaseClient';
 import { loadStripe } from '@stripe/stripe-js';
 
-// --- Interfaces (Tipos de Dados) ---
+// --- Interfaces ---
 interface Produto {
   id: number;
   nome: string;
@@ -14,21 +15,17 @@ interface Produto {
 }
 
 // --- Configuração do Stripe ---
-// Coloque sua Chave Publicável do Stripe aqui. Ela é segura para estar no frontend.
-// Lembre-se que ela começa com "pk_test_...".
-const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY);
-
+const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
 
 export default function StorefrontPage() {
-  const { loja } = useStore(); // Pega a loja atual do nosso contexto
+  const { loja, loading: loadingLoja } = useStore(); // Pega a loja e o status de carregamento dela
   const [produtos, setProdutos] = useState<Produto[]>([]);
   const [loadingProdutos, setLoadingProdutos] = useState(true);
-  const [isCheckingOut, setIsCheckingOut] = useState(false); // Estado para o loading do botão
+  const [isCheckingOut, setIsCheckingOut] = useState<number | null>(null); // Armazena o ID do produto em checkout
 
-  // Efeito para buscar os produtos sempre que a loja do contexto for identificada
   useEffect(() => {
     async function getProdutos() {
-      if (!loja) return; // Se a loja não foi carregada, não faz nada
+      if (!loja) return;
 
       try {
         setLoadingProdutos(true);
@@ -48,26 +45,39 @@ export default function StorefrontPage() {
       }
     }
     
-    getProdutos();
-  }, [loja]); // Dependência: Roda a função quando o objeto 'loja' estiver disponível
+    if (!loadingLoja) { // Só busca produtos se a loja já foi carregada
+      getProdutos();
+    }
+  }, [loja, loadingLoja]);
 
-  // Função para iniciar o checkout do Stripe
   const handleCheckout = async (produto: Produto) => {
-    setIsCheckingOut(true);
+    // Validação crucial para garantir que a loja foi carregada
+    if (!loja) {
+        alert("A informação da loja ainda não foi carregada. Tente novamente em um instante.");
+        return;
+    }
+
+    setIsCheckingOut(produto.id); // Desabilita o botão do produto específico
+
+    // **PASSO DE DEPURAÇÃO**: Veja no console o que você está enviando.
+    const checkoutData = { 
+        produto: produto,
+        loja_id: loja.id,
+        dominio: window.location.host 
+    };
+    console.log("Enviando para o checkout:", checkoutData);
+
     try {
-      // Chama a nossa Edge Function segura no Supabase
       const { data, error } = await supabase.functions.invoke('create-checkout-session', {
-          body: { 
-              produto: produto,
-              dominio: window.location.host 
-          },
+          body: checkoutData,
       });
 
-      if (error) throw new Error(`Erro da Edge Function: ${error.message}`);
+      // Se a função retornar um erro, ele será mostrado aqui
+      if (error) throw error;
+      if (data.error) throw new Error(data.error);
       
       const stripe = await stripePromise;
       if (stripe && data.sessionId) {
-          // Redireciona o cliente para a página de pagamento do Stripe
           await stripe.redirectToCheckout({ sessionId: data.sessionId });
       } else {
         throw new Error('Não foi possível obter a sessão do Stripe.');
@@ -75,12 +85,11 @@ export default function StorefrontPage() {
 
     } catch (err: any) {
         console.error('Erro ao criar sessão de checkout:', err);
-        alert('Não foi possível iniciar o pagamento. Tente novamente mais tarde.');
+        alert(`Não foi possível iniciar o pagamento: ${err.message}`);
     } finally {
-        setIsCheckingOut(false);
+        setIsCheckingOut(null); // Reabilita o botão
     }
   };
-
 
   return (
     <div className="p-4 md:p-8 w-full max-w-7xl mx-auto">
@@ -92,7 +101,7 @@ export default function StorefrontPage() {
       </header>
       
       <main>
-        {loadingProdutos ? (
+        {(loadingLoja || loadingProdutos) ? (
           <p className="text-center text-gray-300">Carregando produtos...</p>
         ) : (
           <>
@@ -108,10 +117,10 @@ export default function StorefrontPage() {
                       <span className="text-2xl font-bold text-green-400">R$ {produto.preco.toFixed(2).replace('.', ',')}</span>
                       <button 
                         onClick={() => handleCheckout(produto)} 
-                        disabled={isCheckingOut}
+                        disabled={isCheckingOut === produto.id} // Desabilita apenas este botão
                         className="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded disabled:bg-gray-500 disabled:cursor-not-allowed"
                       >
-                        {isCheckingOut ? 'Aguarde...' : 'Comprar'}
+                        {isCheckingOut === produto.id ? 'Aguarde...' : 'Comprar'}
                       </button>
                     </div>
                   </div>
