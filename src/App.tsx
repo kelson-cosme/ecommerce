@@ -5,7 +5,8 @@ import { useStore } from './lib/StoreContext';
 import Header from './components/Header';
 import AdminPage from './pages/AdminPage';
 import StorefrontPage from './pages/StorefrontPage';
-import CartPage from './pages/CartPage'; // <-- 1. IMPORTE A NOVA PÁGINA
+import CartPage from './pages/CartPage';
+import ProductDetailPage from './pages/ProductDetailPage'; // Importa a nova página
 
 function App() {
   const { loja, loading } = useStore();
@@ -23,8 +24,9 @@ function App() {
       <Routes>
         <Route path="/" element={<StorefrontPage />} />
         <Route path="/admin" element={<AdminPage />} />
-        {/* 2. ATUALIZE A ROTA DO CARRINHO */}
-        <Route path="/carrinho" element={<CartPage />} /> 
+        <Route path="/carrinho" element={<CartPage />} />
+        {/* Nova rota dinâmica para a página de detalhes do produto */}
+        <Route path="/produto/:productId" element={<ProductDetailPage />} />
       </Routes>
     </div>
   );
