@@ -1,57 +1,37 @@
-// src/pages/HomePage.tsx
+// src/pages/AdminPage.tsx
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
+import type { Session } from '@supabase/supabase-js';
+import Auth from '../components/Auth';
+import Dashboard from '../components/Dashboard';
 
-interface Loja {
-  id: number;
-  nome_loja: string;
-}
-
-export default function HomePage() {
-  const [lojas, setLojas] = useState<Loja[]>([]);
+export default function AdminPage() {
+  const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    async function getLojas() {
-      try {
-        setLoading(true);
-        const { data, error } = await supabase
-          .from('lojas')
-          .select('id, nome_loja');
+    // Verifica se já existe uma sessão ativa
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setLoading(false);
+    });
 
-        if (error) throw error;
-        if (data) setLojas(data);
+    // Escuta por mudanças no estado de autenticação (login/logout)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+    });
 
-      } catch (error: any) {
-        console.error("Erro ao buscar lojas:", error);
-      } finally {
-        setLoading(false);
-      }
-    }
-    getLojas();
+    return () => subscription.unsubscribe();
   }, []);
 
-  return (
-    <div className="p-8 w-full max-w-4xl mx-auto">
-      <h1 className="text-4xl font-bold mb-8 text-center text-white">Lojas Disponíveis</h1>
+  if (loading) {
+    return <div className="flex items-center justify-center min-h-screen">Carregando sessão...</div>;
+  }
 
-      {loading ? (
-        <p className="text-center text-white">Carregando lojas...</p>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {lojas.map((loja) => (
-            <Link 
-              key={loja.id} 
-              to={`/loja/${loja.id}`} 
-              className="bg-gray-800 p-6 rounded-lg shadow-lg hover:bg-purple-700 hover:scale-105 transition-transform duration-200"
-            >
-              <h2 className="text-2xl font-bold text-white text-center">{loja.nome_loja}</h2>
-            </Link>
-          ))}
-        </div>
-      )}
-       {lojas.length === 0 && !loading && <p className="text-center text-white">Nenhuma loja cadastrada ainda.</p>}
+  return (
+    <div className="flex items-center justify-center min-h-screen">
+      {/* Se não há sessão, mostra o componente de autenticação. Se há, mostra o Dashboard. */}
+      {!session ? <Auth /> : <Dashboard session={session} />}
     </div>
   );
 }

@@ -13,23 +13,20 @@ interface StoreContextType {
   loading: boolean;
 }
 
-// O valor inicial do contexto
 const StoreContext = createContext<StoreContextType>({ loja: null, loading: true });
 
-// O Provedor que vai envolver a aplicação
 export function StoreProvider({ children }: { children: ReactNode }) {
   const [loja, setLoja] = useState<Loja | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function fetchStore() {
-      // Pega o hostname (ex: "lojalegal.com.br", "localhost")
       const domain = window.location.hostname;
-
-      // No ambiente de desenvolvimento, podemos simular um domínio para testes.
-      // Troque 'lojateste.com' pelo domínio de uma loja que você cadastrou no Supabase para testar.
+      
+      // IMPORTANTE: Para testar localmente, troque 'lojateste.com' 
+      // pelo domínio exato que você cadastrou na sua tabela 'lojas' no Supabase.
       const domainToFetch = domain === 'localhost' ? 'lojateste.com' : domain;
-
+      
       const { data, error } = await supabase
         .from('lojas')
         .select('*')
@@ -52,7 +49,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
 }
 
-// Hook customizado para usar o contexto facilmente
 export function useStore() {
   return useContext(StoreContext);
 }
