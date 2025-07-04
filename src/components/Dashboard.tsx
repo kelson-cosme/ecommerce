@@ -210,6 +210,19 @@ export default function Dashboard({ session }: { session: Session }) {
       getDadosDaLoja();
     } catch (error: any) { alert(error.message); }
   };
+  const handleConnectStripe = async () => {
+    if (!loja) return;
+    try {
+        const { data, error } = await supabase.functions.invoke('create-connect-onboarding', {
+            body: { loja_id: loja.id, dominio: window.location.host }
+        });
+        if (error) throw error;
+        // Redireciona o lojista para a página de onboarding do Stripe
+        window.location.href = data.url;
+    } catch (error: any) {
+        alert("Erro ao conectar com o Stripe: " + error.message);
+    }
+};
 
   return (
     <div className="p-4 md:p-8 w-full max-w-6xl mx-auto space-y-8">
@@ -322,6 +335,14 @@ export default function Dashboard({ session }: { session: Session }) {
          </form>
        )}
      </Modal>
+
+     <div className="bg-gray-800 p-6 rounded-lg shadow-lg">
+    <h2 className="text-2xl font-bold mb-2">Configuração de Pagamentos</h2>
+    <p className="text-gray-400 mb-4">Conecte sua conta do Stripe para começar a receber pagamentos.</p>
+    <button onClick={handleConnectStripe} className="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-4 rounded">
+        Conectar com o Stripe
+    </button>
+</div>
      </div>
   );
 }

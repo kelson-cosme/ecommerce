@@ -26,7 +26,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       
       // Lembre-se: Para testar localmente, troque 'lojateste.com' 
       // pelo domínio exato que você cadastrou na sua tabela 'lojas' no Supabase.
-      const domainToFetch = domain === 'localhost' ? 'kemax.store' : domain;
+      const domainToFetch = domain === 'localhost' ? 'www.kemax.store' : domain;
       
       const { data, error } = await supabase
         .from('lojas')

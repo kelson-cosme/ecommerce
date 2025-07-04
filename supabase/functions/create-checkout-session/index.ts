@@ -2,17 +2,18 @@
 
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts'
 import Stripe from 'npm:stripe@15.12.0'
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
+import { createClient } from 'npm:@supabase/supabase-js@2.44.4'
 
 interface CartItem {
   id: number;
   nome: string;
   preco: number;
   quantity: number;
+}
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
 serve(async (req) => {
@@ -25,38 +26,61 @@ serve(async (req) => {
       httpClient: Stripe.createFetchHttpClient(),
     });
 
+    const supabaseAdmin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
+
     const { cartItems, loja_id, dominio } = await req.json() as { cartItems: CartItem[], loja_id: number, dominio: string };
 
     if (!cartItems || cartItems.length === 0 || !loja_id || !dominio) {
       throw new Error('Dados do carrinho, loja ou domínio faltando.');
     }
 
-    // Mapeia os itens do carrinho para o formato que o Stripe espera
+    // --- LÓGICA DE PAGAMENTO COM TAXA DE PLATAFORMA ---
+    
+    // 1. Busca o ID da conta Stripe do lojista no seu banco de dados
+    const { data: lojaData, error: lojaError } = await supabaseAdmin
+        .from('lojas').select('stripe_account_id').eq('id', loja_id).single();
+    
+    if (lojaError || !lojaData?.stripe_account_id) {
+        throw new Error("A loja não está configurada para receber pagamentos via Stripe Connect.");
+    }
+    const stripeAccountId = lojaData.stripe_account_id;
+
+    // 2. Mapeia os itens do carrinho para o formato do Stripe
     const line_items = cartItems.map(item => ({
       price_data: {
         currency: 'brl',
-        product_data: {
-          name: item.nome,
-        },
+        product_data: { name: item.nome },
         unit_amount: Math.round(item.preco * 100),
       },
       quantity: item.quantity,
     }));
     
-    // Converte os itens do carrinho para uma string para salvar nos metadados
-    const cartItemsString = JSON.stringify(cartItems);
+    // 3. Calcula o valor total da compra em centavos
+    const totalAmountInCents = cartItems.reduce((sum, item) => sum + (item.preco * 100 * item.quantity), 0);
+
+    // 4. ---- NOVA LÓGICA: CALCULA A SUA TAXA ----
+    // Calcula 3% do valor total. Math.round para garantir que seja um número inteiro.
+    const applicationFeeAmount = Math.round(totalAmountInCents * 0.03);
+
 
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
       mode: 'payment',
-      line_items: line_items, // Passa a lista de itens
+      line_items: line_items,
       success_url: `http://${dominio}/sucesso?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `http://${dominio}/carrinho`, // Volta para o carrinho se cancelar
+      cancel_url: `http://${dominio}/carrinho`,
       metadata: {
         loja_id: loja_id,
-        // Salva todos os itens do carrinho como uma string nos metadados
-        cart_items: cartItemsString,
-      }
+        cart_items: JSON.stringify(cartItems),
+      },
+      // ---- NOVA LÓGICA: DIRECIONA O PAGAMENTO E APLICA A TAXA ----
+      payment_intent_data: {
+        application_fee_amount: applicationFeeAmount,
+        // O dinheiro vai para a conta conectada do lojista
+        transfer_data: {
+          destination: stripeAccountId,
+        },
+      },
     });
 
     return new Response(JSON.stringify({ sessionId: session.id }), {
