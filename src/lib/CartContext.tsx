@@ -1,6 +1,6 @@
 // Caminho do arquivo: src/lib/CartContext.tsx
 
-import { createContext, useState, useEffect, useContext, ReactNode } from 'react';
+import { createContext, useState, useEffect, useContext, type ReactNode } from 'react';
 
 // --- Interfaces (Tipos de Dados) ---
 interface Produto {

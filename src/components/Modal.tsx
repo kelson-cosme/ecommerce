@@ -1,6 +1,6 @@
 // Caminho do arquivo: src/components/Modal.tsx
 
-import { ReactNode } from 'react';
+import type  { ReactNode } from 'react';
 
 interface ModalProps {
   isOpen: boolean;

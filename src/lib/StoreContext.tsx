@@ -1,6 +1,6 @@
 // Caminho do arquivo: src/lib/StoreContext.tsx
 
-import { createContext, useState, useEffect, useContext, ReactNode } from 'react';
+import { createContext, useState, useEffect, useContext, type ReactNode } from 'react';
 import { supabase } from './supabaseClient';
 
 interface Loja {
@@ -26,7 +26,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       
       // Lembre-se: Para testar localmente, troque 'lojateste.com' 
       // pelo domínio exato que você cadastrou na sua tabela 'lojas' no Supabase.
-      const domainToFetch = domain === 'localhost' ? 'lojateste.com' : domain;
+      const domainToFetch = domain === 'localhost' ? 'kemax.store' : domain;
       
       const { data, error } = await supabase
         .from('lojas')
@@ -50,8 +50,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
 }
 
-// ---- A CORREÇÃO ESTÁ AQUI ----
-// Certifique-se de que a palavra "export" está presente antes de "function".
 export function useStore() {
   return useContext(StoreContext);
 }
