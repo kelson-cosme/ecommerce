@@ -71,7 +71,7 @@ Para rodar este projeto localmente, siga os passos abaixo:
 
 1.  **Clone o repositório:**
     ```bash
-    git clone [https://github.com/seu-usuario/seu-repositorio.git](https://github.com/seu-usuario/seu-repositorio.git)
+    git clone [https://github.com/kelson-cosme/ecommerce.git](https://github.com/kelson-cosme/ecommerce.git)
     cd seu-repositorio
     ```
 
